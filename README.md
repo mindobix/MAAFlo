@@ -1,4 +1,4 @@
-# MAAFlo
+# MAAFlo - Marketing Analytics Automation Flow
 
 Local-first marketing automation and analytics platform. Manage multiple clients, connect Google Ads and Meta Ads, track campaigns, and analyse cross-channel performance — all from a single self-hosted web app backed by SQLite.
 
