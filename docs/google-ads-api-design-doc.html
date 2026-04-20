@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MAAFlo — Google Ads API Design Documentation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 0;
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 52px 60px;
+    }
+
+    /* header */
+    .doc-header {
+      border-bottom: 3px solid #0a1628;
+      padding-bottom: 20px;
+      margin-bottom: 32px;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #00c896, #00dba8);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #0a1628;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0a1628;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text span { color: #00c896; }
+
+    .doc-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 32px;
+      font-size: 9.5pt;
+      color: #555;
+    }
+
+    .doc-meta strong { color: #1a1a2e; }
+
+    /* section */
+    h1 {
+      font-size: 15pt;
+      font-weight: 700;
+      color: #0a1628;
+      margin: 28px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #e0e4ee;
+    }
+
+    h2 {
+      font-size: 11pt;
+      font-weight: 600;
+      color: #0a1628;
+      margin: 18px 0 6px;
+    }
+
+    p { margin-bottom: 9px; color: #2d2d3a; }
+
+    ul, ol {
+      margin: 6px 0 12px 20px;
+      color: #2d2d3a;
+    }
+
+    li { margin-bottom: 4px; }
+
+    /* table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 10pt;
+    }
+
+    th {
+      background: #0a1628;
+      color: #fff;
+      padding: 7px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 9.5pt;
+    }
+
+    td {
+      padding: 7px 12px;
+      border-bottom: 1px solid #e8ecf4;
+      vertical-align: top;
+    }
+
+    tr:nth-child(even) td { background: #f7f9fc; }
+
+    /* callout */
+    .callout {
+      background: #f0fdf8;
+      border-left: 4px solid #00c896;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin: 14px 0;
+      font-size: 10.5pt;
+    }
+
+    .callout strong { color: #0a1628; }
+
+    code {
+      background: #f0f2f8;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 9.5pt;
+      color: #0a1628;
+    }
+
+    /* footer */
+    .doc-footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e4ee;
+      font-size: 9pt;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    @media print {
+      body { padding: 0; }
+      .page { padding: 36px 48px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- header -->
+  <div class="doc-header">
+    <div class="logo-row">
+      <div class="logo-mark">M</div>
+      <span class="logo-text">MAA<span>Flo</span></span>
+    </div>
+    <div class="doc-meta">
+      <div><strong>Document:</strong> Google Ads API Design Documentation</div>
+      <div><strong>Version:</strong> 1.0</div>
+      <div><strong>Application:</strong> MAAFlo — Marketing Automation Analytics</div>
+      <div><strong>Date:</strong> April 2026</div>
+      <div><strong>API Access Requested:</strong> Basic Access</div>
+      <div><strong>Deployment:</strong> Local / Single-user</div>
+    </div>
+  </div>
+
+  <!-- 1. overview -->
+  <h1>1. Application Overview</h1>
+  <p>
+    MAAFlo (Marketing Automation Analytics Flow) is a <strong>local-only, single-user desktop
+    web application</strong> built for individual advertisers and small businesses to manage,
+    track, and analyze their own Google Ads campaigns from a unified local dashboard.
+  </p>
+  <p>
+    The application runs entirely on the user's own computer (<code>localhost:3001</code>)
+    and does not collect, transmit, or store any user data on external servers. All data
+    is stored in a local SQLite database on the user's machine.
+  </p>
+
+  <div class="callout">
+    <strong>Key point:</strong> MAAFlo is not a SaaS platform, ad agency tool, or
+    multi-tenant service. It is a personal productivity tool used exclusively to manage
+    the operator's own Google Ads accounts.
+  </div>
+
+  <!-- 2. purpose -->
+  <h1>2. Purpose &amp; Use of the Google Ads API</h1>
+  <p>
+    MAAFlo integrates the Google Ads API to allow the operator to <strong>create and manage
+    campaigns in their own accounts</strong> without switching between multiple interfaces.
+    The API is used strictly for first-party campaign management — no third-party account
+    access is involved.
+  </p>
+
+  <h2>Core API Use Cases</h2>
+  <table>
+    <thead>
+      <tr><th>Feature</th><th>API Service Used</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Campaign Creation</td>
+        <td>CampaignService, CampaignBudgetService</td>
+        <td>Create new Search and Display campaigns with daily budgets in the operator's own account</td>
+      </tr>
+      <tr>
+        <td>Account Discovery</td>
+        <td>CustomerService.listAccessibleCustomers</td>
+        <td>List accessible accounts linked to the authenticated Google account</td>
+      </tr>
+      <tr>
+        <td>OAuth Authentication</td>
+        <td>Google OAuth 2.0</td>
+        <td>Securely authenticate the operator via their own Google account</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 3. architecture -->
+  <h1>3. Technical Architecture</h1>
+
+  <h2>Stack</h2>
+  <ul>
+    <li><strong>Frontend:</strong> React 18 + TypeScript, runs in browser at <code>localhost:5173</code></li>
+    <li><strong>Backend:</strong> Node.js + Express API server at <code>localhost:3001</code></li>
+    <li><strong>Database:</strong> SQLite (local file, <code>data/maaflo.db</code>)</li>
+    <li><strong>Authentication:</strong> Google OAuth 2.0 with offline access (refresh token stored locally)</li>
+  </ul>
+
+  <h2>API Call Flow</h2>
+  <ol>
+    <li>User authenticates via Google OAuth 2.0 — refresh token stored in local SQLite DB</li>
+    <li>On campaign push, the Node.js server exchanges the refresh token for an access token</li>
+    <li>The server calls Google Ads API v20 with the access token and developer token</li>
+    <li>A <code>CampaignBudget</code> is created, then a <code>Campaign</code> resource is created referencing that budget</li>
+    <li>The returned Google Ads Campaign ID is saved locally for reference</li>
+  </ol>
+
+  <h2>API Endpoints Used</h2>
+  <table>
+    <thead>
+      <tr><th>Endpoint</th><th>Method</th><th>Frequency</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/customers:listAccessibleCustomers</code></td>
+        <td>GET</td>
+        <td>Once at setup / on-demand</td>
+      </tr>
+      <tr>
+        <td><code>/customers/{id}/campaignBudgets:mutate</code></td>
+        <td>POST</td>
+        <td>On campaign creation (operator-initiated)</td>
+      </tr>
+      <tr>
+        <td><code>/customers/{id}/campaigns:mutate</code></td>
+        <td>POST</td>
+        <td>On campaign creation (operator-initiated)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 4. data handling -->
+  <h1>4. Data Handling &amp; Privacy</h1>
+  <ul>
+    <li>All Google Ads data (campaign IDs, tokens) is stored only in the local SQLite database on the operator's own machine</li>
+    <li>No data is sent to third-party servers — the only outbound connections are to Google's own APIs</li>
+    <li>OAuth refresh tokens are stored locally and never transmitted outside the user's machine</li>
+    <li>The application has no login system, user accounts, or cloud storage</li>
+    <li>MAAFlo accesses only the accounts belonging to the authenticated Google user</li>
+  </ul>
+
+  <!-- 5. access level -->
+  <h1>5. Why Basic Access is Required</h1>
+  <p>
+    The Google Ads API test developer token only allows access to test accounts. MAAFlo
+    needs to create and manage campaigns in the operator's real production Google Ads
+    account. Basic Access is the minimum access level required to interact with live
+    accounts, which is the entire purpose of the integration.
+  </p>
+  <p>
+    MAAFlo does <strong>not</strong> require Standard or higher access — the application
+    does not manage third-party accounts, does not perform bulk data exports, and does not
+    make automated/scheduled API calls. All API calls are triggered manually by the
+    operator through the UI.
+  </p>
+
+  <!-- 6. compliance -->
+  <h1>6. Compliance &amp; Policy</h1>
+  <ul>
+    <li>API usage complies with <a href="https://developers.google.com/google-ads/api/docs/best-practices/overview">Google Ads API Best Practices</a></li>
+    <li>Campaigns are always created with status <code>PAUSED</code> — the operator activates them manually in Google Ads</li>
+    <li>No automated bidding manipulation or policy-violating campaign types are used</li>
+    <li>The application is used solely by the developer/operator for their own advertising accounts</li>
+  </ul>
+
+  <!-- footer -->
+  <div class="doc-footer">
+    <span>MAAFlo — Marketing Automation Analytics Flow</span>
+    <span>Google Ads API Design Documentation v1.0 — April 2026</span>
+  </div>
+
+</div>
+</body>
+</html>

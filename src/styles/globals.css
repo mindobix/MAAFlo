@@ -1,0 +1,238 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── DaoFlo Design System — Activate your impact ── */
+:root {
+  --sidebar-w: 240px;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { font-family: 'Inter', system-ui, sans-serif; }
+
+  body {
+    @apply bg-surface text-ink;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  h1 { @apply text-2xl font-bold text-ink leading-tight; }
+  h2 { @apply text-xl  font-bold text-ink leading-tight; }
+  h3 { @apply text-base font-semibold text-ink; }
+  p  { @apply text-sm text-ink-2 leading-relaxed; }
+}
+
+@layer components {
+
+  /* ── Shell ── */
+  .app-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    @apply bg-brand-dark text-white flex flex-col;
+    background-image:
+      radial-gradient(ellipse at 0% 0%,   rgba(0,200,150,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse at 100% 100%, rgba(0,200,150,0.06) 0%, transparent 55%);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    @apply flex items-center gap-2 px-6 py-5 border-b border-white/10;
+  }
+
+  .sidebar-logo-mark {
+    @apply w-7 h-7 rounded-lg flex items-center justify-center text-brand-dark font-bold text-sm;
+    background: linear-gradient(135deg, #00c896 0%, #00e6b0 100%);
+  }
+
+  .sidebar-logo-text {
+    @apply text-white font-bold text-lg tracking-tight;
+  }
+
+  .sidebar-logo-text span { @apply text-accent; }
+
+  .nav-group {
+    @apply px-3 pt-5 pb-2 flex-1;
+  }
+
+  .nav-label {
+    @apply text-[10px] font-semibold tracking-widest uppercase text-white/30 px-3 mb-2;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+           text-white/60 hover:text-white transition-all duration-150 w-full text-left;
+    &:hover { background: rgba(255,255,255,0.08); }
+  }
+
+  .nav-item.active {
+    @apply text-white bg-brand-mid;
+    box-shadow: inset 2px 0 0 theme('colors.accent.DEFAULT');
+  }
+
+  .nav-item .nav-icon { @apply w-4 h-4 flex-shrink-0; }
+
+  /* ── Main content ── */
+  .main-content {
+    @apply bg-surface min-h-screen overflow-auto flex flex-col;
+  }
+
+  .page-header {
+    @apply px-8 pt-8 pb-6 border-b border-rule bg-white sticky top-0 z-10;
+  }
+
+  .page-title { @apply text-xl font-bold text-ink; }
+  .page-sub   { @apply text-sm text-ink-muted mt-0.5; }
+
+  .page-body { @apply px-8 py-6 flex-1; }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white rounded-lg border border-rule shadow-card;
+  }
+
+  .card-header {
+    @apply px-5 py-4 border-b border-rule flex items-center justify-between;
+  }
+
+  .card-title { @apply text-sm font-semibold text-ink; }
+
+  /* ── KPI stat ── */
+  .stat-card {
+    @apply card p-5;
+  }
+
+  .stat-label { @apply text-xs font-semibold uppercase tracking-wider text-ink-muted; }
+  .stat-value { @apply text-2xl font-bold text-ink mt-1; }
+  .stat-delta { @apply text-xs font-medium mt-1; }
+  .stat-delta.up   { @apply text-ok; }
+  .stat-delta.down { @apply text-danger; }
+
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded text-sm font-semibold
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn text-brand-dark;
+    background: linear-gradient(135deg, #00c896 0%, #00dba8 100%);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #00b085 0%, #00c896 100%);
+    @apply shadow-glow;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-2 hover:text-ink hover:bg-surface-2 border border-rule;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white hover:bg-red-600;
+  }
+
+  .btn-icon {
+    @apply w-8 h-8 flex items-center justify-center rounded text-ink-2
+           hover:text-ink hover:bg-surface-2 transition-all;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold;
+  }
+
+  .badge-green  { @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200; }
+  .badge-yellow { @apply badge bg-amber-50   text-amber-700   border border-amber-200; }
+  .badge-blue   { @apply badge bg-blue-50    text-blue-700    border border-blue-200; }
+  .badge-gray   { @apply badge bg-surface-2  text-ink-muted   border border-rule; }
+  .badge-red    { @apply badge bg-red-50     text-red-700     border border-red-200; }
+  .badge-purple { @apply badge bg-purple-50  text-purple-700  border border-purple-200; }
+
+  /* ── Form inputs ── */
+  .input {
+    @apply w-full px-3 py-2 rounded border border-rule bg-white text-sm text-ink
+           placeholder-ink-muted
+           focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20
+           transition-all duration-150;
+  }
+
+  .label { @apply block text-xs font-semibold text-ink-2 mb-1; }
+
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  /* ── Table ── */
+  .data-table { @apply w-full text-sm; }
+  .data-table thead { @apply border-b border-rule; }
+  .data-table th {
+    @apply text-left text-xs font-semibold uppercase tracking-wider text-ink-muted px-4 py-3;
+  }
+  .data-table td { @apply px-4 py-3 text-ink-2 border-b border-rule/50; }
+  .data-table tbody tr:hover { @apply bg-surface; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background: rgba(10, 22, 40, 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  .modal {
+    @apply bg-white rounded-xl shadow-float w-full max-w-2xl mx-4;
+    animation: modalIn 0.18s ease-out;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    @apply px-6 py-4 border-b border-rule flex items-center justify-between;
+  }
+
+  .modal-body { @apply px-6 py-5 space-y-4; }
+  .modal-footer { @apply px-6 py-4 border-t border-rule flex justify-end gap-3; }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.97) translateY(-8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-16 text-center;
+  }
+  .empty-state-icon { @apply w-12 h-12 text-ink-muted/40 mb-4; }
+  .empty-state h3   { @apply text-base font-semibold text-ink-2 mb-1; }
+  .empty-state p    { @apply text-sm text-ink-muted max-w-xs; }
+
+  /* ── Channel card ── */
+  .channel-card {
+    @apply card p-5 flex items-start gap-4;
+  }
+
+  .channel-icon {
+    @apply w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0;
+  }
+
+  /* ── Accent glow dot (pulsing) ── */
+  .pulse-dot {
+    @apply w-2 h-2 rounded-full bg-accent;
+    animation: pulseDot 2s infinite;
+  }
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+}
