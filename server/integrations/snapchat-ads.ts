@@ -114,15 +114,23 @@ export interface SnapAdAccount {
 }
 
 export async function listAdAccounts(accessToken: string): Promise<SnapAdAccount[]> {
-  // 1 — me → organization ids
-  const meData = await snapRequest('/me', 'GET', accessToken)
-  const meInner = (meData.me ?? {}) as Record<string, unknown>
-  const userId  = String(meInner.id ?? '')
-
-  // 2 — organizations for this user
-  const orgData = await snapRequest(`/users/${userId}/organizations`, 'GET', accessToken)
-  const orgs    = ((orgData.organizations ?? []) as Record<string, unknown>[])
-    .map(o => (o.organization ?? {}) as Record<string, unknown>)
+  // 1 — fetch organizations (try /me/organizations first, fall back to user-scoped)
+  let orgs: Record<string, unknown>[] = []
+  try {
+    const orgData = await snapRequest('/me/organizations', 'GET', accessToken)
+    orgs = ((orgData.organizations ?? []) as Record<string, unknown>[])
+      .map(o => (o.organization ?? o) as Record<string, unknown>)
+  } catch {
+    // fallback: get userId from /me then try /users/{id}/organizations
+    const meData  = await snapRequest('/me', 'GET', accessToken)
+    const userId  = String(((meData.me ?? {}) as Record<string, unknown>).id ?? '')
+    if (userId) {
+      const orgData = await snapRequest(`/users/${userId}/organizations`, 'GET', accessToken)
+      orgs = ((orgData.organizations ?? []) as Record<string, unknown>[])
+        .map(o => (o.organization ?? o) as Record<string, unknown>)
+    }
+  }
+  console.log('[Snapchat] organizations found:', orgs.length, orgs.map(o => o.id))
 
   if (orgs.length === 0) return []
 
@@ -182,21 +190,33 @@ export async function createSnapCampaign(
   const startT  = input.start_date ? new Date(input.start_date).toISOString() : new Date(Date.now() + 10 * 60_000).toISOString()
   const endT    = input.end_date   ? new Date(input.end_date).toISOString()   : undefined
 
+  const OBJECTIVE_MAP: Record<string, string> = {
+    awareness:   'BRAND_AWARENESS',
+    traffic:     'WEBSITE_VISITS',
+    leads:       'LEAD_GENERATION',
+    conversions: 'WEBSITE_CONVERSIONS',
+    sales:       'WEBSITE_CONVERSIONS',
+  }
+  const snapObjective = OBJECTIVE_MAP[input.goal] ?? 'BRAND_AWARENESS'
+
   // 1 — Campaign
   const campBody = {
     campaigns: [{
-      name:        input.name,
+      name:          input.name,
       ad_account_id: adAccountId,
-      status:      'PAUSED',
-      objective:   'WEBSITE_VISITS',
-      start_time:  startT,
+      status:        'PAUSED',
+      objective:     snapObjective,
+      start_time:    startT,
       ...(endT ? { end_time: endT } : {}),
     }],
   }
   const campData = await snapRequest(`/adaccounts/${adAccountId}/campaigns`, 'POST', accessToken, undefined, campBody)
+  console.log('[Snapchat] campaign response:', JSON.stringify(campData).slice(0, 400))
   const campList = (campData.campaigns ?? []) as Record<string, unknown>[]
-  const first    = (campList[0]?.campaign ?? {}) as Record<string, unknown>
-  const campaignId = String(first.id ?? '')
+  const first    = (campList[0] ?? {}) as Record<string, unknown>
+  // response wraps in .campaign or returns fields directly
+  const campObj  = (first.campaign ?? first) as Record<string, unknown>
+  const campaignId = String(campObj.id ?? '')
   if (!campaignId) throw new Error('Snapchat did not return a campaign id')
 
   // 2 — Ad Squad (Snapchat's ad-group concept)
@@ -217,8 +237,10 @@ export async function createSnapCampaign(
     }],
   }
   const squadData = await snapRequest(`/campaigns/${campaignId}/adsquads`, 'POST', accessToken, undefined, adSquadBody)
+  console.log('[Snapchat] adsquad response:', JSON.stringify(squadData).slice(0, 400))
   const squadList = (squadData.adsquads ?? []) as Record<string, unknown>[]
-  const sq        = (squadList[0]?.adsquad ?? {}) as Record<string, unknown>
+  const sqFirst   = (squadList[0] ?? {}) as Record<string, unknown>
+  const sq        = (sqFirst.adsquad ?? sqFirst) as Record<string, unknown>
   const adSquadId = String(sq.id ?? '')
 
   return { campaignId, adSquadId }

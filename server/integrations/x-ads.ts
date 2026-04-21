@@ -2,7 +2,7 @@
 // Docs: https://developer.x.com/en/docs/x-ads-api
 // Auth: https://developer.x.com/en/docs/authentication/oauth-2-0/authorization-code
 
-import { randomBytes, createHash } from 'crypto'
+import { randomBytes, createHash, createHmac } from 'crypto'
 
 const ADS_BASE    = 'https://ads-api.x.com/12'
 const OAUTH_AUTH  = 'https://x.com/i/oauth2/authorize'
@@ -82,6 +82,42 @@ export async function exchangeAuthCode(
   }
 }
 
+// ─── OAUTH 1.0a SIGNING ───────────────────────────────────────────────────────
+
+export interface XOAuth1Creds {
+  consumerKey:    string
+  consumerSecret: string
+  accessToken:    string
+  accessSecret:   string
+}
+
+function pct(s: string): string {
+  return encodeURIComponent(s).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+}
+
+function oauth1Header(method: string, baseUrl: string, queryParams: Record<string, string>, creds: XOAuth1Creds): string {
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key:     creds.consumerKey,
+    oauth_nonce:            randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp:        String(Math.floor(Date.now() / 1000)),
+    oauth_token:            creds.accessToken,
+    oauth_version:          '1.0',
+  }
+  const allParams: Record<string, string> = { ...queryParams, ...oauthParams }
+  const paramStr = Object.keys(allParams).sort()
+    .map(k => `${pct(k)}=${pct(allParams[k])}`)
+    .join('&')
+  const baseStr  = `${method.toUpperCase()}&${pct(baseUrl)}&${pct(paramStr)}`
+  const sigKey   = `${pct(creds.consumerSecret)}&${pct(creds.accessSecret)}`
+  const sig      = createHmac('sha1', sigKey).update(baseStr).digest('base64')
+  oauthParams.oauth_signature = sig
+  const header = 'OAuth ' + Object.keys(oauthParams).sort()
+    .map(k => `${pct(k)}="${pct(oauthParams[k])}"`)
+    .join(', ')
+  return header
+}
+
 // ─── HTTP WRAPPER ─────────────────────────────────────────────────────────────
 
 async function xRequest(
@@ -89,7 +125,8 @@ async function xRequest(
   method: 'GET' | 'POST',
   accessToken: string,
   params?: Record<string, unknown>,
-  body?: Record<string, unknown>
+  body?: Record<string, unknown>,
+  oauth1?: XOAuth1Creds
 ): Promise<Record<string, unknown>> {
   const url = new URL(`${ADS_BASE}${path}`)
   if (method === 'GET' && params) {
@@ -101,10 +138,19 @@ async function xRequest(
 
   console.log(`[X Ads] ${method} ${url.pathname}`)
 
+  let authHeader: string
+  if (oauth1) {
+    const qp: Record<string, string> = {}
+    url.searchParams.forEach((v, k) => { qp[k] = v })
+    authHeader = oauth1Header(method, `${ADS_BASE}${path}`, qp, oauth1)
+  } else {
+    authHeader = `Bearer ${accessToken}`
+  }
+
   const res = await fetch(url.toString(), {
     method,
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': authHeader,
       'Content-Type':  'application/json',
     },
     body: method === 'POST' && body ? JSON.stringify(body) : undefined,
@@ -136,8 +182,8 @@ export interface XAdAccount {
   approval_status?: string
 }
 
-export async function listAdAccounts(accessToken: string): Promise<XAdAccount[]> {
-  const data = await xRequest('/accounts', 'GET', accessToken, { count: 200 })
+export async function listAdAccounts(accessToken: string, oauth1?: XOAuth1Creds): Promise<XAdAccount[]> {
+  const data = await xRequest('/accounts', 'GET', accessToken, { count: 200 }, undefined, oauth1)
   const list = (data.data ?? []) as Record<string, unknown>[]
   return list.map(a => ({
     id:               String(a.id ?? ''),
@@ -176,13 +222,14 @@ function toMicros(amount: number): string {
 export async function createXCampaign(
   accountId:    string,
   accessToken:  string,
-  input:        XCampaignInput
+  input:        XCampaignInput,
+  oauth1?:      XOAuth1Creds
 ): Promise<{ campaignId: string; lineItemId: string; fundingInstrumentId: string | null }> {
   const objective   = OBJECTIVE_MAP[input.goal] ?? 'WEBSITE_CLICKS'
   const dailyBudget = Math.max(input.budget_daily || 10, 1)
 
   // 1 — Get funding instrument (campaigns need one)
-  const fiData = await xRequest(`/accounts/${accountId}/funding_instruments`, 'GET', accessToken, { count: 50 })
+  const fiData = await xRequest(`/accounts/${accountId}/funding_instruments`, 'GET', accessToken, { count: 50 }, undefined, oauth1)
   const fis    = (fiData.data ?? []) as Record<string, unknown>[]
   const fi     = fis.find(f => !f.cancelled) ?? fis[0]
   const fundingInstrumentId = fi ? String(fi.id ?? '') : null
@@ -200,7 +247,7 @@ export async function createXCampaign(
   if (input.start_date) campBody.start_time = new Date(input.start_date).toISOString()
   if (input.end_date)   campBody.end_time   = new Date(input.end_date).toISOString()
 
-  const campData = await xRequest(`/accounts/${accountId}/campaigns`, 'POST', accessToken, undefined, campBody)
+  const campData = await xRequest(`/accounts/${accountId}/campaigns`, 'POST', accessToken, undefined, campBody, oauth1)
   const campInner = (campData.data ?? {}) as Record<string, unknown>
   const campaignId = String(campInner.id ?? '')
   if (!campaignId) throw new Error('X Ads did not return a campaign id')
@@ -217,7 +264,7 @@ export async function createXCampaign(
     entity_status:            'PAUSED',
     total_budget_amount_local_micro: toMicros(dailyBudget * 30),
   }
-  const lineData   = await xRequest(`/accounts/${accountId}/line_items`, 'POST', accessToken, undefined, lineBody)
+  const lineData   = await xRequest(`/accounts/${accountId}/line_items`, 'POST', accessToken, undefined, lineBody, oauth1)
   const lineInner  = (lineData.data ?? {}) as Record<string, unknown>
   const lineItemId = String(lineInner.id ?? '')
 

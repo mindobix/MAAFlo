@@ -49,7 +49,7 @@ const blankAd = (slug: string): Partial<CampaignAd> => ({
 
 export default function CampaignDetailPage({ campaignId, clientId, onBack }: Props) {
   const [campaign,      setCampaign]      = useState<CampaignDetail | null>(null)
-  const [connectedChans, setConnectedChans] = useState<Channel[]>([])
+  const [allChans, setAllChans] = useState<Channel[]>([])
   const [loading,       setLoading]       = useState(true)
   const [chartMetric,   setChartMetric]   = useState<'spend' | 'impressions' | 'clicks' | 'conversions'>('spend')
   const [chartDays,     setChartDays]     = useState(30)
@@ -74,7 +74,7 @@ export default function CampaignDetailPage({ campaignId, clientId, onBack }: Pro
     try {
       const [det, chans] = await Promise.all([api.campaigns.get(campaignId), api.channels.list(clientId)])
       setCampaign(det)
-      setConnectedChans(chans.filter(c => c.status === 'connected'))
+      setAllChans(chans)
     } finally { setLoading(false) }
   }
 
@@ -161,8 +161,8 @@ export default function CampaignDetailPage({ campaignId, clientId, onBack }: Pro
 
   // channels on this campaign
   const campaignChannelSlugs = new Set(campaign.channels.map(c => c.channel_slug))
-  // connected channels not yet added to this campaign
-  const availableToAdd = connectedChans.filter(c => !campaignChannelSlugs.has(c.slug as ChannelSlug))
+  // all channels not yet added to this campaign
+  const availableToAdd = allChans.filter(c => !campaignChannelSlugs.has(c.slug as ChannelSlug))
 
   return (
     <>
@@ -435,12 +435,14 @@ export default function CampaignDetailPage({ campaignId, clientId, onBack }: Pro
               <div className="grid grid-cols-2 gap-2">
                 {availableToAdd.map(ch => {
                   const Icon = CHANNEL_ICONS[ch.slug] ?? Globe
+                  const connected = ch.status === 'connected'
                   return (
                     <button key={ch.slug} type="button"
                       onClick={() => setAddChanSlug(ch.slug)}
                       className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-sm transition-all ${addChanSlug === ch.slug ? 'border-accent bg-accent/10 text-accent font-semibold' : 'border-border hover:border-accent/40 text-ink'}`}>
                       <Icon size={15} />
-                      {ch.name}
+                      <span className="flex-1 text-left">{ch.name}</span>
+                      {!connected && <span className="text-xs text-ink-muted bg-surface-2 border border-border rounded px-1.5 py-0.5 leading-none">not connected</span>}
                     </button>
                   )
                 })}

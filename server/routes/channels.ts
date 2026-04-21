@@ -1034,6 +1034,32 @@ router.post('/linkedin/credentials', (req, res) => {
   res.json({ ok: true })
 })
 
+// POST /linkedin/manual-token — save a developer-portal token directly
+router.post('/linkedin/manual-token', async (req, res) => {
+  const { access_token } = req.body as Record<string, string>
+  const clientId = req.body.client_id ?? req.query.client_id ?? 1
+  if (!access_token?.trim()) return res.status(400).json({ error: 'access_token required' })
+
+  const cfg = getLinkedInConfig(clientId)
+  cfg.access_token = access_token.trim()
+  cfg.ad_accounts  = []
+  cfg.account_id   = null
+
+  db.prepare(`UPDATE channels SET status = 'connected', config_json = ?, connected_at = datetime('now') WHERE slug = 'linkedin' AND client_id = ?`)
+    .run(JSON.stringify(cfg), clientId)
+
+  try {
+    const accounts  = await linkedinListAdAccounts(access_token.trim())
+    cfg.ad_accounts = accounts
+    cfg.account_id  = accounts[0]?.id ?? null
+    db.prepare("UPDATE channels SET config_json = ? WHERE slug = 'linkedin' AND client_id = ?").run(JSON.stringify(cfg), clientId)
+    res.json({ ok: true, ad_accounts: accounts, account_id: cfg.account_id })
+  } catch (e) {
+    console.warn('[LinkedIn] manual token — could not fetch accounts:', e instanceof Error ? e.message : e)
+    res.json({ ok: true, ad_accounts: [], account_id: null })
+  }
+})
+
 router.get('/linkedin/config', (req, res) => {
   try {
     const clientId = req.query.client_id ?? 1
@@ -1067,7 +1093,22 @@ router.get('/linkedin/connect', (req, res) => {
 router.get('/linkedin/callback', async (req, res) => {
   const code     = String(req.query.code ?? '')
   const clientId = req.query.state ?? '1'
-  if (!code) return res.status(400).send('Missing code')
+  if (!code) {
+    const errDesc = req.query.error_description ? decodeURIComponent(String(req.query.error_description)) : String(req.query.error ?? 'Unknown error')
+    return res.status(400).send(`<html><body>
+      <h3>LinkedIn OAuth Error</h3>
+      <p>${errDesc}</p>
+      ${errDesc.includes('not authorized') ? `
+      <p><strong>Fix — two steps required:</strong></p>
+      <ol>
+        <li>Go to <a href="https://www.linkedin.com/developers/apps" target="_blank">linkedin.com/developers/apps</a> → select your app</li>
+        <li>Under <strong>App settings</strong>, make sure a <strong>LinkedIn Company Page</strong> is linked — the Products tab is hidden without this</li>
+        <li>Click the <strong>Products</strong> tab → Request access to <strong>Marketing Developer Platform</strong></li>
+        <li>Wait for LinkedIn approval (1–3 business days) then try connecting again</li>
+      </ol>` : ''}
+      <p><a href="javascript:window.close()">Close this window</a></p>
+    </body></html>`)
+  }
 
   try {
     const cfg          = getLinkedInConfig(clientId)
@@ -1236,6 +1277,39 @@ router.get('/x_ads/config', (req, res) => {
   }
 })
 
+// POST /x_ads/manual-token — save OAuth 1.0a credentials from the Developer Portal
+router.post('/x_ads/manual-token', async (req, res) => {
+  const { consumer_key, consumer_secret, access_token, access_token_secret } = req.body as Record<string, string>
+  const clientId = req.body.client_id ?? req.query.client_id ?? 1
+  if (!consumer_key?.trim() || !consumer_secret?.trim() || !access_token?.trim() || !access_token_secret?.trim()) {
+    return res.status(400).json({ error: 'consumer_key, consumer_secret, access_token, and access_token_secret are all required' })
+  }
+
+  const cfg = getXConfig(clientId)
+  cfg.access_token         = access_token.trim()
+  cfg.oauth1_consumer_key  = consumer_key.trim()
+  cfg.oauth1_consumer_secret = consumer_secret.trim()
+  cfg.oauth1_access_secret = access_token_secret.trim()
+  cfg.refresh_token        = null
+  cfg.ad_accounts          = []
+  cfg.account_id           = null
+
+  db.prepare(`UPDATE channels SET status = 'connected', config_json = ?, connected_at = datetime('now') WHERE slug = 'x_ads' AND client_id = ?`)
+    .run(JSON.stringify(cfg), clientId)
+
+  const oauth1 = { consumerKey: consumer_key.trim(), consumerSecret: consumer_secret.trim(), accessToken: access_token.trim(), accessSecret: access_token_secret.trim() }
+  try {
+    const accounts  = await xListAdAccounts(access_token.trim(), oauth1)
+    cfg.ad_accounts = accounts
+    cfg.account_id  = accounts[0]?.id ?? null
+    db.prepare("UPDATE channels SET config_json = ? WHERE slug = 'x_ads' AND client_id = ?").run(JSON.stringify(cfg), clientId)
+    res.json({ ok: true, ad_accounts: accounts, account_id: cfg.account_id })
+  } catch (e) {
+    console.warn('[X Ads] manual token — could not fetch accounts:', e instanceof Error ? e.message : e)
+    res.json({ ok: true, ad_accounts: [], account_id: null })
+  }
+})
+
 // ─── X OAUTH ──────────────────────────────────────────────────────────────────
 
 router.get('/x_ads/connect', (req, res) => {
@@ -1308,8 +1382,15 @@ router.post('/x_ads/refresh-accounts', async (req, res) => {
   const token = cfg.access_token as string | undefined
   if (!token) return res.status(400).json({ error: 'X not connected' })
 
+  const oauth1 = cfg.oauth1_consumer_key ? {
+    consumerKey:    cfg.oauth1_consumer_key    as string,
+    consumerSecret: cfg.oauth1_consumer_secret as string,
+    accessToken:    token,
+    accessSecret:   cfg.oauth1_access_secret   as string,
+  } : undefined
+
   try {
-    const accounts   = await xListAdAccounts(token)
+    const accounts   = await xListAdAccounts(token, oauth1)
     cfg.ad_accounts  = accounts
     cfg.account_id   = cfg.account_id ?? accounts[0]?.id ?? null
     db.prepare("UPDATE channels SET config_json = ? WHERE slug = 'x_ads' AND client_id = ?").run(JSON.stringify(cfg), clientId)
@@ -1430,6 +1511,32 @@ router.get('/snapchat/config', (req, res) => {
     })
   } catch (e: unknown) {
     res.status(400).json({ error: e instanceof Error ? e.message : 'Error' })
+  }
+})
+
+// POST /snapchat/manual-token
+router.post('/snapchat/manual-token', async (req, res) => {
+  const { access_token } = req.body as Record<string, string>
+  const clientId = req.body.client_id ?? req.query.client_id ?? 1
+  if (!access_token?.trim()) return res.status(400).json({ error: 'access_token required' })
+
+  const cfg = getSnapConfig(clientId)
+  cfg.access_token = access_token.trim()
+  cfg.ad_accounts  = []
+  cfg.account_id   = null
+
+  db.prepare(`UPDATE channels SET status = 'connected', config_json = ?, connected_at = datetime('now') WHERE slug = 'snapchat' AND client_id = ?`)
+    .run(JSON.stringify(cfg), clientId)
+
+  try {
+    const accounts  = await snapListAdAccounts(access_token.trim())
+    cfg.ad_accounts = accounts
+    cfg.account_id  = accounts[0]?.id ?? null
+    db.prepare("UPDATE channels SET config_json = ? WHERE slug = 'snapchat' AND client_id = ?").run(JSON.stringify(cfg), clientId)
+    res.json({ ok: true, ad_accounts: accounts, account_id: cfg.account_id })
+  } catch (e) {
+    console.warn('[Snapchat] manual token — could not fetch accounts:', e instanceof Error ? e.message : e)
+    res.json({ ok: true, ad_accounts: [], account_id: null })
   }
 })
 

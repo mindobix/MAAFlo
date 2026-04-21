@@ -12,41 +12,19 @@ import { createMailchimpCampaign as pushMailchimp } from '../integrations/mailch
 
 const router = Router({ mergeParams: true })
 
-function getGoogleCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'google_ads'").get() as { config_json: string }
+function getCfg(slug: string, clientId: unknown) {
+  const ch = db.prepare('SELECT config_json FROM channels WHERE slug = ? AND client_id = ?').get(slug, clientId) as { config_json: string } | undefined
   return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
 }
-function getMetaCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'meta'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getTiktokCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'tiktok'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getLinkedInCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'linkedin'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getXCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'x_ads'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getSnapCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'snapchat'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getAmazonCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'amazon'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getPinterestCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'pinterest'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
-}
-function getMailchimpCfg() {
-  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'mailchimp'").get() as { config_json: string }
-  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+
+function requireGoogleCreds(cfg: Record<string, unknown>) {
+  const clientId      = cfg.google_client_id      as string | undefined
+  const clientSecret  = cfg.google_client_secret  as string | undefined
+  const developerToken = cfg.google_developer_token as string | undefined
+  if (!clientId || !clientSecret || !developerToken) {
+    throw new Error('Google Ads app credentials not configured — go to Channels and enter your OAuth Client ID, Client Secret, and Developer Token.')
+  }
+  return { clientId, clientSecret, developerToken }
 }
 
 // GET /api/campaigns/:id/channels
@@ -113,8 +91,11 @@ router.post('/:slug/push', async (req, res) => {
   if (!cc) return res.status(404).json({ error: 'Channel not added to this campaign' })
 
   try {
+    const clientId = campaign.client_id ?? 1
+
     if (req.params.slug === 'google_ads') {
-      const cfg = getGoogleCfg()
+      const cfg             = getCfg('google_ads', clientId)
+      const creds           = requireGoogleCreds(cfg)
       const refreshToken    = cfg.refresh_token as string
       const customerId      = cfg.customer_id as string
       const loginCustomerId = cfg.login_customer_id as string | undefined
@@ -125,15 +106,15 @@ router.post('/:slug/push', async (req, res) => {
         goal:         campaign.goal as string,
         budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 10,
         status:       cc.status as string,
-      }, loginCustomerId)
+      }, creds, loginCustomerId)
 
       db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
         .run(r.campaignId, req.params.id, 'google_ads')
-      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'google_ads'").run()
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'google_ads' AND client_id = ?").run(clientId)
       res.json({ ok: true, campaignId: r.campaignId })
     }
     else if (req.params.slug === 'meta') {
-      const cfg = getMetaCfg()
+      const cfg       = getCfg('meta', clientId)
       const token     = cfg.access_token as string
       const accountId = cfg.account_id as string
       if (!token || !accountId) return res.status(400).json({ error: 'Meta Ads not configured — connect it in Channels and select an account' })
@@ -147,11 +128,11 @@ router.post('/:slug/push', async (req, res) => {
 
       db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
         .run(r.campaignId, r.adSetId, req.params.id, 'meta')
-      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'meta'").run()
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'meta' AND client_id = ?").run(clientId)
       res.json({ ok: true, campaignId: r.campaignId, adSetId: r.adSetId })
     }
     else if (req.params.slug === 'tiktok') {
-      const cfg = getTiktokCfg()
+      const cfg = getCfg('tiktok', clientId)
       const token        = cfg.access_token  as string
       const advertiserId = cfg.advertiser_id as string
       if (!token || !advertiserId) return res.status(400).json({ error: 'TikTok Ads not configured — connect it in Channels and select an advertiser' })
@@ -169,7 +150,7 @@ router.post('/:slug/push', async (req, res) => {
       res.json({ ok: true, campaignId: r.campaignId, adGroupId: r.adGroupId })
     }
     else if (req.params.slug === 'linkedin') {
-      const cfg = getLinkedInCfg()
+      const cfg = getCfg('linkedin', clientId)
       const token     = cfg.access_token as string
       const accountId = cfg.account_id   as string
       if (!token || !accountId) return res.status(400).json({ error: 'LinkedIn Ads not configured — connect it in Channels and select an ad account' })
@@ -188,10 +169,17 @@ router.post('/:slug/push', async (req, res) => {
       res.json({ ok: true, campaignId: r.campaignId, campaignGroupId: r.campaignGroupId })
     }
     else if (req.params.slug === 'x_ads') {
-      const cfg = getXCfg()
+      const cfg = getCfg('x_ads', clientId)
       const token     = cfg.access_token as string
       const accountId = cfg.account_id   as string
       if (!token || !accountId) return res.status(400).json({ error: 'X Ads not configured — connect it in Channels and select an ad account' })
+
+      const oauth1 = cfg.oauth1_consumer_key ? {
+        consumerKey:    cfg.oauth1_consumer_key    as string,
+        consumerSecret: cfg.oauth1_consumer_secret as string,
+        accessToken:    token,
+        accessSecret:   cfg.oauth1_access_secret   as string,
+      } : undefined
 
       const r = await pushX(accountId, token, {
         name:         campaign.name as string,
@@ -199,7 +187,7 @@ router.post('/:slug/push', async (req, res) => {
         budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 10,
         start_date:   campaign.start_date as string | null,
         end_date:     campaign.end_date   as string | null,
-      })
+      }, oauth1)
 
       db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
         .run(r.campaignId, r.lineItemId, req.params.id, 'x_ads')
@@ -207,7 +195,7 @@ router.post('/:slug/push', async (req, res) => {
       res.json({ ok: true, campaignId: r.campaignId, lineItemId: r.lineItemId })
     }
     else if (req.params.slug === 'snapchat') {
-      const cfg = getSnapCfg()
+      const cfg = getCfg('snapchat', clientId)
       const token     = cfg.access_token as string
       const accountId = cfg.account_id   as string
       if (!token || !accountId) return res.status(400).json({ error: 'Snapchat Ads not configured — connect it in Channels and select an ad account' })
@@ -226,7 +214,7 @@ router.post('/:slug/push', async (req, res) => {
       res.json({ ok: true, campaignId: r.campaignId, adSquadId: r.adSquadId })
     }
     else if (req.params.slug === 'amazon') {
-      const cfg = getAmazonCfg()
+      const cfg = getCfg('amazon', clientId)
       const token     = cfg.access_token     as string
       const amazonCid = cfg.amazon_client_id as string
       const profileId = cfg.profile_id       as string
@@ -247,7 +235,7 @@ router.post('/:slug/push', async (req, res) => {
       res.json({ ok: true, campaignId: r.campaignId, adGroupId: r.adGroupId })
     }
     else if (req.params.slug === 'pinterest') {
-      const cfg = getPinterestCfg()
+      const cfg = getCfg('pinterest', clientId)
       const token     = cfg.access_token as string
       const accountId = cfg.account_id   as string
       if (!token || !accountId) return res.status(400).json({ error: 'Pinterest Ads not configured — connect it in Channels and select an ad account' })
@@ -266,7 +254,7 @@ router.post('/:slug/push', async (req, res) => {
       res.json({ ok: true, campaignId: r.campaignId, adGroupId: r.adGroupId })
     }
     else if (req.params.slug === 'mailchimp') {
-      const cfg = getMailchimpCfg()
+      const cfg = getCfg('mailchimp', clientId)
       const token      = cfg.access_token as string
       const dc         = cfg.dc           as string
       const audienceId = cfg.audience_id  as string

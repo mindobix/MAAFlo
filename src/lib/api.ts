@@ -130,6 +130,8 @@ export const api = {
     selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/snapchat/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
     pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; adSquadId: string }>(`/channels/snapchat/push-campaign/${campaignId}`, { method: 'POST' }),
     sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/snapchat/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    saveManualToken:     (clientId: number, access_token: string) =>
+      req<{ ok: boolean; ad_accounts: SnapAdAccount[]; account_id: string | null }>('/channels/snapchat/manual-token', { method: 'POST', body: JSON.stringify({ access_token, client_id: clientId }) }),
   },
 
   // x_ads (scoped to client)
@@ -142,6 +144,8 @@ export const api = {
     selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/x_ads/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
     pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; lineItemId: string }>(`/channels/x_ads/push-campaign/${campaignId}`, { method: 'POST' }),
     sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/x_ads/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    saveManualToken:     (clientId: number, creds: { consumer_key: string; consumer_secret: string; access_token: string; access_token_secret: string }) =>
+      req<{ ok: boolean; ad_accounts: XAdAccount[]; account_id: string | null }>('/channels/x_ads/manual-token', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
   },
 
   // linkedin (scoped to client)
@@ -154,6 +158,8 @@ export const api = {
     selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/linkedin/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
     pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; campaignGroupId: string }>(`/channels/linkedin/push-campaign/${campaignId}`, { method: 'POST' }),
     sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/linkedin/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    saveManualToken:     (clientId: number, access_token: string) =>
+      req<{ ok: boolean; ad_accounts: LinkedInAdAccount[]; account_id: string | null }>('/channels/linkedin/manual-token', { method: 'POST', body: JSON.stringify({ access_token, client_id: clientId }) }),
   },
 
   // tiktok (scoped to client)

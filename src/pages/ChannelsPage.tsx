@@ -51,6 +51,9 @@ export default function ChannelsPage({ clientId }: Props) {
   const [liCredsForm,     setLiCredsForm]     = useState({ linkedin_client_id: '', linkedin_client_secret: '' })
   const [savingLiCreds,   setSavingLiCreds]   = useState(false)
   const [showLiCredsForm, setShowLiCredsForm] = useState(false)
+  const [showLiTokenForm, setShowLiTokenForm] = useState(false)
+  const [liManualToken,   setLiManualToken]   = useState('')
+  const [savingLiToken,   setSavingLiToken]   = useState(false)
 
   // X (Twitter) Ads state
   const [xAccounts,       setXAccounts]       = useState<XAdAccount[]>([])
@@ -59,6 +62,9 @@ export default function ChannelsPage({ clientId }: Props) {
   const [xCredsForm,      setXCredsForm]      = useState({ x_client_id: '', x_client_secret: '' })
   const [savingXCreds,    setSavingXCreds]    = useState(false)
   const [showXCredsForm,  setShowXCredsForm]  = useState(false)
+  const [showXTokenForm,  setShowXTokenForm]  = useState(false)
+  const [xOAuth1Form,     setXOAuth1Form]     = useState({ consumer_key: '', consumer_secret: '', access_token: '', access_token_secret: '' })
+  const [savingXToken,    setSavingXToken]    = useState(false)
 
   // Snapchat state
   const [snapAccounts,    setSnapAccounts]    = useState<SnapAdAccount[]>([])
@@ -67,6 +73,9 @@ export default function ChannelsPage({ clientId }: Props) {
   const [snapCredsForm,   setSnapCredsForm]   = useState({ snapchat_client_id: '', snapchat_client_secret: '' })
   const [savingSnapCreds, setSavingSnapCreds] = useState(false)
   const [showSnapCredsForm, setShowSnapCredsForm] = useState(false)
+  const [showSnapTokenForm, setShowSnapTokenForm] = useState(false)
+  const [snapManualToken,   setSnapManualToken]   = useState('')
+  const [savingSnapToken,   setSavingSnapToken]   = useState(false)
 
   // Amazon state
   const [amzProfiles,      setAmzProfiles]      = useState<AmazonProfile[]>([])
@@ -491,6 +500,22 @@ export default function ChannelsPage({ clientId }: Props) {
     catch (e: unknown) { setMsg({ text: e instanceof Error ? e.message : 'Error', ok: false }) }
   }
 
+  async function saveSnapManualToken() {
+    if (!snapManualToken.trim()) return
+    setSavingSnapToken(true); setMsg(null)
+    try {
+      const r = await api.snapchat.saveManualToken(clientId, snapManualToken.trim())
+      setSnapAccounts(r.ad_accounts)
+      setSnapAccountId(r.account_id)
+      setShowSnapTokenForm(false)
+      setSnapManualToken('')
+      setMsg({ text: `Snapchat connected. Loaded ${r.ad_accounts.length} ad account(s).`, ok: true })
+      await load()
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Save failed', ok: false })
+    } finally { setSavingSnapToken(false) }
+  }
+
   async function selectSnapAccount(id: string) {
     await api.snapchat.selectAccount(id, clientId)
     setSnapAccountId(id)
@@ -538,6 +563,23 @@ export default function ChannelsPage({ clientId }: Props) {
     catch (e: unknown) { setMsg({ text: e instanceof Error ? e.message : 'Error', ok: false }) }
   }
 
+  async function saveXManualToken() {
+    const { consumer_key, consumer_secret, access_token, access_token_secret } = xOAuth1Form
+    if (!consumer_key || !consumer_secret || !access_token || !access_token_secret) return
+    setSavingXToken(true); setMsg(null)
+    try {
+      const r = await api.x.saveManualToken(clientId, xOAuth1Form)
+      setXAccounts(r.ad_accounts)
+      setXAccountId(r.account_id)
+      setShowXTokenForm(false)
+      setXOAuth1Form({ consumer_key: '', consumer_secret: '', access_token: '', access_token_secret: '' })
+      setMsg({ text: `X Ads connected. Loaded ${r.ad_accounts.length} ad account(s).`, ok: true })
+      await load()
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Save failed', ok: false })
+    } finally { setSavingXToken(false) }
+  }
+
   async function selectXAccount(id: string) {
     await api.x.selectAccount(id, clientId)
     setXAccountId(id)
@@ -578,6 +620,22 @@ export default function ChannelsPage({ clientId }: Props) {
     } catch (e: unknown) {
       setMsg({ text: e instanceof Error ? e.message : 'Save failed', ok: false })
     } finally { setSavingLiCreds(false) }
+  }
+
+  async function saveLinkedInManualToken() {
+    if (!liManualToken.trim()) return
+    setSavingLiToken(true); setMsg(null)
+    try {
+      const r = await api.linkedin.saveManualToken(clientId, liManualToken.trim())
+      setLiAccounts(r.ad_accounts)
+      setLiAccountId(r.account_id)
+      setShowLiTokenForm(false)
+      setLiManualToken('')
+      setMsg({ text: `LinkedIn connected. Loaded ${r.ad_accounts.length} ad account(s).`, ok: true })
+      await load()
+    } catch (e: unknown) {
+      setMsg({ text: e instanceof Error ? e.message : 'Save failed', ok: false })
+    } finally { setSavingLiToken(false) }
   }
 
   async function connectLinkedIn() {
@@ -794,20 +852,20 @@ export default function ChannelsPage({ clientId }: Props) {
                   {/* ── Meta Ads onboarding ───────────────────────────────── */}
                   {!conn && !soon && isMeta && (
                     <div className="space-y-3">
-                      {/* System User Token — primary path */}
+                      {/* Graph API Explorer — easiest path */}
                       <div className="rounded-lg border border-rule bg-surface p-3 space-y-2">
                         <p className="text-xs font-semibold text-ink flex items-center gap-1.5">
-                          <KeyRound size={13} className="text-accent" /> Connect via System User Token <span className="text-ok font-medium">(Recommended)</span>
+                          <KeyRound size={13} className="text-accent" /> Quickest: Graph API Explorer Token
                         </p>
                         <ol className="text-xs text-ink-muted space-y-1 list-decimal list-inside bg-white/50 rounded p-2 border border-rule">
-                          <li>Go to <strong>business.facebook.com</strong> → Business Settings</li>
-                          <li>System Users → Add → create a <strong>System User</strong> (Admin role)</li>
-                          <li>Click <strong>Generate New Token</strong> → select your app</li>
-                          <li>Enable permissions: <code className="bg-surface-2 px-1 rounded font-mono">ads_read</code>, <code className="bg-surface-2 px-1 rounded font-mono">ads_management</code>, <code className="bg-surface-2 px-1 rounded font-mono">business_management</code></li>
+                          <li>Go to <strong>developers.facebook.com/tools/explorer</strong></li>
+                          <li>Top-right: select your app (or use <em>Meta App</em> default)</li>
+                          <li>Click <strong>Generate Access Token</strong></li>
+                          <li>Tick permissions: <code className="bg-surface-2 px-1 rounded font-mono">ads_read</code>, <code className="bg-surface-2 px-1 rounded font-mono">ads_management</code>, <code className="bg-surface-2 px-1 rounded font-mono">business_management</code></li>
                           <li>Copy the token and paste it below</li>
                         </ol>
                         <div className="flex gap-2">
-                          <input className="input flex-1 font-mono text-xs" placeholder="Paste System User access token…"
+                          <input className="input flex-1 font-mono text-xs" placeholder="Paste access token…"
                             value={metaToken}
                             onChange={e => setMetaToken(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && saveMetaToken()} />
@@ -815,6 +873,21 @@ export default function ChannelsPage({ clientId }: Props) {
                             {savingToken ? 'Saving…' : <><Save size={13} /> Connect</>}
                           </button>
                         </div>
+                        <p className="text-xs text-ink-muted">Note: Graph API Explorer tokens expire in ~1 hour. For a permanent token use a System User (below).</p>
+                      </div>
+
+                      {/* System User Token — permanent, requires Business Portfolio */}
+                      <div className="rounded-lg border border-rule/60 bg-surface/60 p-3 space-y-2">
+                        <p className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                          <KeyRound size={13} className="text-ink-muted" /> Permanent: System User Token
+                        </p>
+                        <ol className="text-xs text-ink-muted space-y-1 list-decimal list-inside bg-white/50 rounded p-2 border border-rule">
+                          <li>You need a <strong>Meta Business Portfolio</strong> — if you don't have one, create it at <strong>business.facebook.com</strong> first</li>
+                          <li>Inside Business Manager go to <strong>Settings → System Users</strong> (direct URL: <code className="bg-surface-2 px-1 rounded font-mono text-[10px]">business.facebook.com/settings/system-users</code>)</li>
+                          <li>Click <strong>Add</strong> → give it a name → set role to <strong>Admin</strong></li>
+                          <li>Click <strong>Generate New Token</strong> → select your Meta app → tick <code className="bg-surface-2 px-1 rounded font-mono">ads_read</code>, <code className="bg-surface-2 px-1 rounded font-mono">ads_management</code>, <code className="bg-surface-2 px-1 rounded font-mono">business_management</code></li>
+                          <li>Copy the token and paste it in the field above</li>
+                        </ol>
                       </div>
 
                       {/* OAuth path — optional, requires HTTPS in production */}
@@ -990,11 +1063,17 @@ export default function ChannelsPage({ clientId }: Props) {
 
                         {(!liHasCreds || showLiCredsForm) && (
                           <div className="space-y-2 pt-1">
+                            <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 space-y-1">
+                              <p><strong>⚠ Products tab not visible?</strong> Your app must be linked to a LinkedIn Company Page before the Products tab appears.</p>
+                              <p><strong>⚠ Marketing API approval required</strong> — once the Products tab is visible, you must request <strong>Marketing Developer Platform</strong> access and wait for LinkedIn approval (1–3 business days).</p>
+                            </div>
                             <ol className="text-xs text-ink-muted space-y-1 list-decimal list-inside bg-white/50 rounded p-2 border border-rule">
-                              <li>Go to <strong>linkedin.com/developers</strong> → Create App</li>
-                              <li>Products → request <strong>Marketing Developer Platform</strong> access</li>
-                              <li>Auth → add <code className="bg-surface-2 px-1 rounded font-mono">http://localhost:3001/api/channels/linkedin/callback</code> as redirect URL</li>
-                              <li>Copy <strong>Client ID</strong> and <strong>Client Secret</strong> from the Auth tab</li>
+                              <li>Go to <strong>linkedin.com/developers/apps</strong> → Create App</li>
+                              <li>Under <strong>App settings</strong>, set <strong>LinkedIn Page</strong> to your Company Page — <em>the Products tab will not appear without this</em></li>
+                              <li>Click the <strong>Products</strong> tab (now visible) → find <strong>Marketing Developer Platform</strong> → click <strong>Request access</strong></li>
+                              <li>Wait for LinkedIn approval email (1–3 business days) — <em>Connect returns a scope error until approved</em></li>
+                              <li>After approval: <strong>Auth</strong> tab → OAuth 2.0 settings → add <code className="bg-surface-2 px-1 rounded font-mono text-[10px]">http://localhost:3001/api/channels/linkedin/callback</code> as Authorized Redirect URL</li>
+                              <li>Copy <strong>Client ID</strong> and <strong>Client Secret</strong> from the Auth tab and enter below</li>
                             </ol>
                             <input className="input text-xs font-mono" placeholder="Client ID"
                               value={liCredsForm.linkedin_client_id}
@@ -1012,12 +1091,36 @@ export default function ChannelsPage({ clientId }: Props) {
                       {/* Step 2 — Connect */}
                       <div className={`rounded-lg border p-3 space-y-2 ${liHasCreds ? 'border-rule bg-surface' : 'border-rule/50 bg-surface/50 opacity-60'}`}>
                         <p className="text-xs font-semibold text-ink flex items-center gap-1.5">
-                          <ExternalLink size={13} className="text-accent" /> Step 2 — Authorize LinkedIn Ad Account
+                          <ExternalLink size={13} className="text-accent" /> Step 2 — Authorize (requires Marketing API approval)
                         </p>
-                        <p className="text-xs text-ink-muted">Authorizes MAAFlo to manage your LinkedIn Campaign Manager accounts.</p>
+                        <p className="text-xs text-ink-muted">Only works after LinkedIn approves your Marketing Developer Platform request.</p>
                         <button className="btn-primary text-xs px-3 py-1.5" onClick={connectLinkedIn} disabled={!liHasCreds}>
                           <ExternalLink size={12} /> Connect LinkedIn Ads
                         </button>
+                      </div>
+
+                      {/* Alternative — paste token from Developer Portal */}
+                      <div className="rounded-lg border border-rule bg-surface p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-ink">Alternative — Paste token from Developer Portal</p>
+                          <button className="text-xs text-accent hover:underline" onClick={() => setShowLiTokenForm(v => !v)}>
+                            {showLiTokenForm ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        {showLiTokenForm && (
+                          <div className="space-y-2 pt-1">
+                            <p className="text-xs text-ink-muted">Go to <strong>linkedin.com/developers/apps</strong> → your app → <strong>Auth</strong> tab → <strong>OAuth token tools</strong> → generate a 3-legged token with <code className="bg-surface-2 px-1 rounded font-mono text-[10px]">r_ads r_ads_reporting rw_ads</code> scopes.</p>
+                            <textarea
+                              className="input text-xs font-mono resize-none h-20 w-full"
+                              placeholder="Paste access token here…"
+                              value={liManualToken}
+                              onChange={e => setLiManualToken(e.target.value)}
+                            />
+                            <button className="btn-primary text-xs px-3 py-1.5 w-full" onClick={saveLinkedInManualToken} disabled={savingLiToken || !liManualToken.trim()}>
+                              <Save size={12} /> {savingLiToken ? 'Saving…' : 'Save Token & Connect'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1052,6 +1155,10 @@ export default function ChannelsPage({ clientId }: Props) {
                   {/* ── X (Twitter) Ads onboarding ────────────────────────── */}
                   {!conn && !soon && isX && (
                     <div className="space-y-3">
+                      <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 space-y-1">
+                        <p><strong>⚠ X Ads API approval required.</strong> Your X app must be separately approved for Ads API access — the standard developer plan does not include it.</p>
+                        <p>Apply at <strong>developer.x.com → Products → X Ads API</strong> and wait for approval before connecting will work.</p>
+                      </div>
                       {/* Step 1 — Credentials */}
                       <div className="rounded-lg border border-rule bg-surface p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -1096,6 +1203,40 @@ export default function ChannelsPage({ clientId }: Props) {
                         <button className="btn-primary text-xs px-3 py-1.5" onClick={connectX} disabled={!xHasCreds}>
                           <ExternalLink size={12} /> Connect X Ads
                         </button>
+                      </div>
+
+                      {/* Alternative — paste token from Developer Portal */}
+                      <div className="rounded-lg border border-rule bg-surface p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-ink">Alternative — Paste token from Developer Portal</p>
+                          <button className="text-xs text-accent hover:underline" onClick={() => setShowXTokenForm(v => !v)}>
+                            {showXTokenForm ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        {showXTokenForm && (
+                          <div className="space-y-2 pt-1">
+                            <p className="text-xs text-ink-muted">
+                              Go to <strong>developer.x.com</strong> → your app → <strong>Keys and Tokens</strong>.
+                              Copy all four values below. Make sure the Access Token has <em>Read and Write</em> permissions.
+                            </p>
+                            <input className="input text-xs font-mono" placeholder="API Key (Consumer Key)"
+                              value={xOAuth1Form.consumer_key}
+                              onChange={e => setXOAuth1Form(f => ({ ...f, consumer_key: e.target.value }))} />
+                            <input className="input text-xs font-mono" placeholder="API Key Secret (Consumer Secret)" type="password"
+                              value={xOAuth1Form.consumer_secret}
+                              onChange={e => setXOAuth1Form(f => ({ ...f, consumer_secret: e.target.value }))} />
+                            <input className="input text-xs font-mono" placeholder="Access Token"
+                              value={xOAuth1Form.access_token}
+                              onChange={e => setXOAuth1Form(f => ({ ...f, access_token: e.target.value }))} />
+                            <input className="input text-xs font-mono" placeholder="Access Token Secret" type="password"
+                              value={xOAuth1Form.access_token_secret}
+                              onChange={e => setXOAuth1Form(f => ({ ...f, access_token_secret: e.target.value }))} />
+                            <button className="btn-primary text-xs px-3 py-1.5 w-full" onClick={saveXManualToken}
+                              disabled={savingXToken || !xOAuth1Form.consumer_key || !xOAuth1Form.consumer_secret || !xOAuth1Form.access_token || !xOAuth1Form.access_token_secret}>
+                              <Save size={12} /> {savingXToken ? 'Saving…' : 'Save & Connect'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1169,10 +1310,39 @@ export default function ChannelsPage({ clientId }: Props) {
                         <p className="text-xs font-semibold text-ink flex items-center gap-1.5">
                           <ExternalLink size={13} className="text-accent" /> Step 2 — Authorize Snapchat Ad Account
                         </p>
-                        <p className="text-xs text-ink-muted">Authorizes MAAFlo to manage your Snapchat Ads Manager account.</p>
+                        <p className="text-xs text-ink-muted">Requires HTTPS redirect URL — use ngrok: <code className="bg-surface-2 px-1 rounded font-mono text-[10px]">ngrok http 3001</code> then update the redirect URL in your Snapchat app.</p>
                         <button className="btn-primary text-xs px-3 py-1.5" onClick={connectSnap} disabled={!snapHasCreds}>
                           <ExternalLink size={12} /> Connect Snapchat Ads
                         </button>
+                      </div>
+
+                      {/* Alternative — paste token */}
+                      <div className="rounded-lg border border-rule bg-surface p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-ink">Alternative — Paste access token directly</p>
+                          <button className="text-xs text-accent hover:underline" onClick={() => setShowSnapTokenForm(v => !v)}>
+                            {showSnapTokenForm ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        {showSnapTokenForm && (
+                          <div className="space-y-2 pt-1">
+                            <p className="text-xs text-ink-muted font-semibold">Run this in your terminal (replace with your App credentials):</p>
+                            <pre className="text-[10px] font-mono bg-surface-2 border border-rule rounded p-2 whitespace-pre-wrap break-all select-all">{`curl -X POST https://accounts.snapchat.com/login/oauth2/access_token \\
+  -d "grant_type=client_credentials" \\
+  -d "client_id=YOUR_CLIENT_ID" \\
+  -d "client_secret=YOUR_CLIENT_SECRET"`}</pre>
+                            <p className="text-xs text-ink-muted">Copy the <code className="bg-surface-2 px-1 rounded font-mono">access_token</code> value from the JSON response and paste it below.</p>
+                            <textarea
+                              className="input text-xs font-mono resize-none h-20 w-full"
+                              placeholder="Paste access_token here…"
+                              value={snapManualToken}
+                              onChange={e => setSnapManualToken(e.target.value)}
+                            />
+                            <button className="btn-primary text-xs px-3 py-1.5 w-full" onClick={saveSnapManualToken} disabled={savingSnapToken || !snapManualToken.trim()}>
+                              <Save size={12} /> {savingSnapToken ? 'Saving…' : 'Save Token & Connect'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

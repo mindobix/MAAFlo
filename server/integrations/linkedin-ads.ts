@@ -3,7 +3,7 @@
 
 const REST_BASE  = 'https://api.linkedin.com/rest'
 const OAUTH_BASE = 'https://www.linkedin.com/oauth/v2'
-const LI_VERSION = '202501'   // LinkedIn-Version header (YYYYMM)
+const LI_VERSION = '202601'   // LinkedIn-Version header (YYYYMM) → LinkedIn reads as YYYYMM01
 
 // ─── OAUTH ────────────────────────────────────────────────────────────────────
 
@@ -99,12 +99,14 @@ async function linkedinRequest(
     throw new Error(`LinkedIn API error (HTTP ${res.status}): ${msg}`)
   }
 
-  if (!text) return {}
-  try {
-    return JSON.parse(text) as Record<string, unknown>
-  } catch {
-    return {}
-  }
+  // LinkedIn returns created entity ID in headers for POST requests
+  const xId = res.headers.get('x-linkedin-id') ?? res.headers.get('x-restli-id') ?? res.headers.get('location')
+  if (!text) return xId ? { id: xId } : {}
+  let parsed: Record<string, unknown> = {}
+  try { parsed = JSON.parse(text) as Record<string, unknown> } catch { /* ignore */ }
+  // Prefer body id, fall back to header
+  if (!parsed.id && xId) parsed.id = xId.split(':').pop() ?? xId
+  return parsed
 }
 
 // ─── AD ACCOUNTS ──────────────────────────────────────────────────────────────
@@ -117,46 +119,72 @@ export interface LinkedInAdAccount {
 }
 
 export async function listAdAccounts(accessToken: string): Promise<LinkedInAdAccount[]> {
-  // Find ad accounts the current member has access to via role-based ACL.
+  // Primary: find accounts via role-based ACL membership
   const data = await linkedinRequest('/adAccountUsers', 'GET', accessToken, {
-    q:    'authenticatedUser',
+    q: 'authenticatedUser',
   })
+  console.log('[LinkedIn Ads] adAccountUsers response:', JSON.stringify(data).slice(0, 500))
   const elements = (data.elements ?? []) as Record<string, unknown>[]
-  if (elements.length === 0) return []
 
-  const accountIds = elements.map(el => {
-    const accountUrn = String(el.account ?? '')
-    // "urn:li:sponsoredAccount:1234567" → "1234567"
-    return accountUrn.split(':').pop() ?? ''
-  }).filter(Boolean)
+  if (elements.length > 0) {
+    const accountIds = elements.map(el => {
+      const accountUrn = String(el.account ?? '')
+      return accountUrn.split(':').pop() ?? ''
+    }).filter(Boolean)
 
-  if (accountIds.length === 0) return []
+    console.log('[LinkedIn Ads] account IDs found:', accountIds)
 
-  // Batch fetch account details
-  const ids = accountIds.map(id => `(id:${id})`).join(',')
-  const accountsData = await linkedinRequest(
-    `/adAccounts?ids=List(${encodeURIComponent(ids)})`,
-    'GET',
-    accessToken
-  ).catch(async () => {
-    // Fallback: fetch one-by-one if batch fails
-    const results: Record<string, unknown> = { results: {} }
-    for (const id of accountIds) {
-      try {
-        const one = await linkedinRequest(`/adAccounts/${id}`, 'GET', accessToken)
-        ;(results.results as Record<string, unknown>)[id] = one
-      } catch { /* skip */ }
-    }
-    return results
+    const ids = accountIds.map(id => `(id:${id})`).join(',')
+    const accountsData = await linkedinRequest(
+      `/adAccounts?ids=List(${encodeURIComponent(ids)})`,
+      'GET',
+      accessToken
+    ).catch(async (batchErr: unknown) => {
+      console.warn('[LinkedIn Ads] batch fetch failed, trying one-by-one:', batchErr instanceof Error ? batchErr.message : batchErr)
+      const results: Record<string, unknown> = { results: {} }
+      for (const id of accountIds) {
+        try {
+          const one = await linkedinRequest(`/adAccounts/${id}`, 'GET', accessToken)
+          ;(results.results as Record<string, unknown>)[id] = one
+        } catch (e) {
+          console.warn(`[LinkedIn Ads] failed to fetch account ${id}:`, e instanceof Error ? e.message : e)
+        }
+      }
+      return results
+    })
+
+    const results = (accountsData.results ?? {}) as Record<string, Record<string, unknown>>
+    const mapped = Object.entries(results).map(([id, acc]) => ({
+      id,
+      name:     String(acc.name ?? `Account ${id}`),
+      currency: String(acc.currency ?? ''),
+      status:   acc.status ? String(acc.status) : undefined,
+    }))
+    if (mapped.length > 0) return mapped
+  }
+
+  // Fallback: search all accounts the token can see
+  console.log('[LinkedIn Ads] adAccountUsers empty, trying adAccounts search...')
+  const searchData = await linkedinRequest('/adAccounts', 'GET', accessToken, {
+    q:      'search',
+    'search.status.values[0]': 'ACTIVE',
+  }).catch((e: unknown) => {
+    console.warn('[LinkedIn Ads] adAccounts search failed:', e instanceof Error ? e.message : e)
+    return { elements: [] }
   })
+  console.log('[LinkedIn Ads] adAccounts search response:', JSON.stringify(searchData).slice(0, 500))
 
-  const results = (accountsData.results ?? {}) as Record<string, Record<string, unknown>>
-  return Object.entries(results).map(([id, acc]) => ({
-    id,
-    name:     String(acc.name ?? `Account ${id}`),
-    currency: String(acc.currency ?? ''),
-    status:   acc.status ? String(acc.status) : undefined,
-  }))
+  const searchElements = (searchData.elements ?? []) as Record<string, unknown>[]
+  return searchElements.map(acc => {
+    const urn = String(acc.id ?? acc.reference ?? '')
+    const id  = urn.includes(':') ? urn.split(':').pop()! : urn
+    return {
+      id,
+      name:     String(acc.name ?? `Account ${id}`),
+      currency: String(acc.currency ?? ''),
+      status:   acc.status ? String(acc.status) : undefined,
+    }
+  })
 }
 
 // ─── CAMPAIGN CREATION ────────────────────────────────────────────────────────
@@ -185,7 +213,7 @@ export async function createLinkedInCampaign(
 ): Promise<{ campaignGroupId: string; campaignId: string }> {
   const objective   = OBJECTIVE_MAP[input.goal] ?? 'WEBSITE_VISIT'
   const dailyBudget = Math.max(input.budget_daily || 10, 10)
-  const startMs     = input.start_date ? new Date(input.start_date).getTime() : Date.now()
+  const startMs     = Math.max(input.start_date ? new Date(input.start_date).getTime() : Date.now(), Date.now())
   const endMs       = input.end_date   ? new Date(input.end_date).getTime()   : undefined
 
   // 1 — Campaign Group (container)
@@ -195,6 +223,7 @@ export async function createLinkedInCampaign(
     accessToken,
     undefined,
     {
+      account:      `urn:li:sponsoredAccount:${adAccountId}`,
       name:         input.name,
       status:       'DRAFT',
       totalBudget:  { amount: String(dailyBudget * 30), currencyCode: 'USD' },
@@ -203,6 +232,7 @@ export async function createLinkedInCampaign(
   )
   // LinkedIn returns the created entity id in the x-linkedin-id response header normally;
   // the REST rewrite also puts it in the body `id` field.
+  console.log('[LinkedIn Ads] campaignGroup response:', JSON.stringify(groupData).slice(0, 300))
   const campaignGroupId = String(groupData.id ?? '')
   if (!campaignGroupId) throw new Error('LinkedIn did not return a campaign group id')
 
@@ -213,19 +243,22 @@ export async function createLinkedInCampaign(
     accessToken,
     undefined,
     {
-      name:             input.name,
-      campaignGroup:    `urn:li:sponsoredCampaignGroup:${campaignGroupId}`,
-      type:             'SPONSORED_UPDATES',
-      costType:         'CPC',
-      dailyBudget:      { amount: String(dailyBudget), currencyCode: 'USD' },
-      objectiveType:    objective,
-      status:           'DRAFT',
-      runSchedule:      endMs ? { start: startMs, end: endMs } : { start: startMs },
-      locale:           { country: 'US', language: 'en' },
-      targetingCriteria:{
+      account:               `urn:li:sponsoredAccount:${adAccountId}`,
+      name:                  input.name,
+      campaignGroup:         `urn:li:sponsoredCampaignGroup:${campaignGroupId}`,
+      type:                  'SPONSORED_UPDATES',
+      costType:              'CPC',
+      dailyBudget:           { amount: String(dailyBudget), currencyCode: 'USD' },
+      objectiveType:         objective,
+      status:                'DRAFT',
+      offsiteDeliveryEnabled: false,
+      politicalIntent:       'NOT_POLITICAL',
+      runSchedule:           endMs ? { start: startMs, end: endMs } : { start: startMs },
+      locale:                { country: 'US', language: 'en' },
+      targetingCriteria: {
         include: {
           and: [
-            { or: { 'urn:li:adTargetingFacet:locations': ['urn:li:geo:103644278'] } },  // United States
+            { or: { 'urn:li:adTargetingFacet:locations': ['urn:li:geo:103644278'] } },
           ],
         },
       },

@@ -1,0 +1,9 @@
+MAAFlo is a self-hosted, open-source multi-channel ad management platform built for digital agencies and in-house marketing teams. It centralizes campaign planning, execution, and analytics across nine major advertising platforms: Google Ads, Meta, TikTok, LinkedIn, X (Twitter), Snapchat, Amazon Ads, Pinterest, and Mailchimp.
+
+With MAAFlo, you create a campaign once — define the goal (awareness, traffic, leads, conversions, or sales), set a budget and date range, then assign channels with individual daily budgets. Push to every connected platform in a single click. MAAFlo creates the campaign on each platform via its native API and stores the external campaign IDs for tracking.
+
+The platform supports multiple clients in one install. Each client has fully isolated channels, credentials, and campaigns — OAuth tokens and API keys are stored per client in the database, never in shared environment variables. Switching clients updates the entire dashboard instantly.
+
+Analytics sync daily from each platform into a unified table. View spend, impressions, clicks, conversions, and ROAS by channel or in aggregate — all in the same interface where you manage campaigns. No exporting, no tab-switching, no manual reconciliation.
+
+MAAFlo runs on Node.js with a SQLite database, making it lightweight and easy to self-host on any server or local machine.
