@@ -1,6 +1,6 @@
 export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived'
 export type CampaignGoal   = 'awareness' | 'traffic' | 'leads' | 'conversions' | 'sales'
-export type ChannelSlug    = 'google_ads' | 'meta' | 'tiktok' | 'linkedin'
+export type ChannelSlug    = 'google_ads' | 'meta' | 'tiktok' | 'linkedin' | 'x_ads' | 'snapchat' | 'amazon' | 'pinterest' | 'mailchimp'
 export type ChannelStatus  = 'disconnected' | 'connected' | 'error' | 'coming_soon'
 
 // Top-level campaign — channel-agnostic
@@ -131,6 +131,62 @@ export interface MetaAdAccount {
   name:     string
   currency: string
   status:   number
+}
+
+export interface TiktokAdvertiser {
+  advertiser_id:   string
+  advertiser_name: string
+  currency?:       string
+  status?:         string
+}
+
+export interface LinkedInAdAccount {
+  id:       string
+  name:     string
+  currency: string
+  status?:  string
+}
+
+export interface XAdAccount {
+  id:               string
+  name:             string
+  business_name?:   string
+  currency?:        string
+  timezone?:        string
+  approval_status?: string
+}
+
+export interface SnapAdAccount {
+  id:        string
+  name:      string
+  currency?: string
+  timezone?: string
+  status?:   string
+}
+
+export interface AmazonProfile {
+  profileId:      string
+  countryCode:    string
+  currencyCode:   string
+  accountType?:   string
+  accountName?:   string
+  accountId?:     string
+  marketplaceId?: string
+}
+
+export interface PinterestAdAccount {
+  id:        string
+  name:      string
+  currency?: string
+  country?:  string
+  owner?:    string
+}
+
+export interface MailchimpAudience {
+  id:            string
+  name:          string
+  member_count?: number
+  date_created?: string
 }
 
 export interface GoogleCustomer {

@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS channels_new (
 );
 
 INSERT OR IGNORE INTO channels_new
-  (id, slug, name, icon, status, config_json, connected_at, last_sync_at, client_id)
-SELECT id, slug, name, icon, status, config_json, connected_at, last_sync_at, client_id
+  (id, slug, name, icon, status, config_json, connected_at, last_sync_at)
+SELECT id, slug, name, icon, status, config_json, connected_at, last_sync_at
 FROM channels;
 
 DROP TABLE channels;

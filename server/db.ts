@@ -18,6 +18,8 @@ for (const file of ['001_init.sql', '002_multi_channel.sql', '003_clients.sql', 
 
 // enable channels that are now integrated
 db.prepare("UPDATE channels SET status = 'disconnected' WHERE slug = 'meta' AND status = 'coming_soon'").run()
+db.prepare("UPDATE channels SET status = 'disconnected' WHERE slug = 'tiktok' AND status = 'coming_soon'").run()
+db.prepare("UPDATE channels SET status = 'disconnected' WHERE slug = 'linkedin' AND status = 'coming_soon'").run()
 
 // safe column additions — idempotent
 function addCol(table: string, col: string, def: string) {
@@ -42,8 +44,13 @@ const seedChannels = db.prepare(`INSERT OR IGNORE INTO channels (slug, name, ico
 const CHANNEL_DEFS: [string, string, string, string][] = [
   ['google_ads', 'Google Ads',   'search',   'disconnected'],
   ['meta',       'Meta Ads',     'facebook', 'disconnected'],
-  ['tiktok',     'TikTok Ads',   'video',    'coming_soon'],
-  ['linkedin',   'LinkedIn Ads', 'linkedin', 'coming_soon'],
+  ['tiktok',     'TikTok Ads',   'video',    'disconnected'],
+  ['linkedin',   'LinkedIn Ads', 'linkedin', 'disconnected'],
+  ['x_ads',      'X Ads',        'x',        'disconnected'],
+  ['snapchat',   'Snapchat Ads', 'ghost',    'disconnected'],
+  ['amazon',     'Amazon Ads',   'shopping', 'disconnected'],
+  ['pinterest',  'Pinterest Ads','pin',      'disconnected'],
+  ['mailchimp',  'Mailchimp',    'mail',     'disconnected'],
 ]
 for (const { id } of allClients) {
   for (const [slug, name, icon, status] of CHANNEL_DEFS) {

@@ -2,6 +2,13 @@ import { Router } from 'express'
 import db from '../db'
 import { createCampaign as pushGoogle } from '../integrations/google-ads'
 import { createMetaCampaign as pushMeta } from '../integrations/meta-ads'
+import { createTiktokCampaign as pushTiktok } from '../integrations/tiktok-ads'
+import { createLinkedInCampaign as pushLinkedIn } from '../integrations/linkedin-ads'
+import { createXCampaign as pushX } from '../integrations/x-ads'
+import { createSnapCampaign as pushSnap } from '../integrations/snapchat-ads'
+import { createAmazonCampaign as pushAmazon } from '../integrations/amazon-ads'
+import { createPinterestCampaign as pushPinterest } from '../integrations/pinterest-ads'
+import { createMailchimpCampaign as pushMailchimp } from '../integrations/mailchimp'
 
 const router = Router({ mergeParams: true })
 
@@ -11,6 +18,34 @@ function getGoogleCfg() {
 }
 function getMetaCfg() {
   const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'meta'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getTiktokCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'tiktok'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getLinkedInCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'linkedin'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getXCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'x_ads'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getSnapCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'snapchat'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getAmazonCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'amazon'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getPinterestCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'pinterest'").get() as { config_json: string }
+  return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
+}
+function getMailchimpCfg() {
+  const ch = db.prepare("SELECT config_json FROM channels WHERE slug = 'mailchimp'").get() as { config_json: string }
   return JSON.parse(ch?.config_json ?? '{}') as Record<string, unknown>
 }
 
@@ -114,6 +149,142 @@ router.post('/:slug/push', async (req, res) => {
         .run(r.campaignId, r.adSetId, req.params.id, 'meta')
       db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'meta'").run()
       res.json({ ok: true, campaignId: r.campaignId, adSetId: r.adSetId })
+    }
+    else if (req.params.slug === 'tiktok') {
+      const cfg = getTiktokCfg()
+      const token        = cfg.access_token  as string
+      const advertiserId = cfg.advertiser_id as string
+      if (!token || !advertiserId) return res.status(400).json({ error: 'TikTok Ads not configured — connect it in Channels and select an advertiser' })
+
+      const r = await pushTiktok(advertiserId, token, {
+        name:         campaign.name as string,
+        goal:         campaign.goal as string,
+        budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 20,
+        start_date:   campaign.start_date as string | null,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, r.adGroupId, req.params.id, 'tiktok')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'tiktok'").run()
+      res.json({ ok: true, campaignId: r.campaignId, adGroupId: r.adGroupId })
+    }
+    else if (req.params.slug === 'linkedin') {
+      const cfg = getLinkedInCfg()
+      const token     = cfg.access_token as string
+      const accountId = cfg.account_id   as string
+      if (!token || !accountId) return res.status(400).json({ error: 'LinkedIn Ads not configured — connect it in Channels and select an ad account' })
+
+      const r = await pushLinkedIn(accountId, token, {
+        name:         campaign.name as string,
+        goal:         campaign.goal as string,
+        budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 10,
+        start_date:   campaign.start_date as string | null,
+        end_date:     campaign.end_date   as string | null,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, r.campaignGroupId, req.params.id, 'linkedin')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'linkedin'").run()
+      res.json({ ok: true, campaignId: r.campaignId, campaignGroupId: r.campaignGroupId })
+    }
+    else if (req.params.slug === 'x_ads') {
+      const cfg = getXCfg()
+      const token     = cfg.access_token as string
+      const accountId = cfg.account_id   as string
+      if (!token || !accountId) return res.status(400).json({ error: 'X Ads not configured — connect it in Channels and select an ad account' })
+
+      const r = await pushX(accountId, token, {
+        name:         campaign.name as string,
+        goal:         campaign.goal as string,
+        budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 10,
+        start_date:   campaign.start_date as string | null,
+        end_date:     campaign.end_date   as string | null,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, r.lineItemId, req.params.id, 'x_ads')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'x_ads'").run()
+      res.json({ ok: true, campaignId: r.campaignId, lineItemId: r.lineItemId })
+    }
+    else if (req.params.slug === 'snapchat') {
+      const cfg = getSnapCfg()
+      const token     = cfg.access_token as string
+      const accountId = cfg.account_id   as string
+      if (!token || !accountId) return res.status(400).json({ error: 'Snapchat Ads not configured — connect it in Channels and select an ad account' })
+
+      const r = await pushSnap(accountId, token, {
+        name:         campaign.name as string,
+        goal:         campaign.goal as string,
+        budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 20,
+        start_date:   campaign.start_date as string | null,
+        end_date:     campaign.end_date   as string | null,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, r.adSquadId, req.params.id, 'snapchat')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'snapchat'").run()
+      res.json({ ok: true, campaignId: r.campaignId, adSquadId: r.adSquadId })
+    }
+    else if (req.params.slug === 'amazon') {
+      const cfg = getAmazonCfg()
+      const token     = cfg.access_token     as string
+      const amazonCid = cfg.amazon_client_id as string
+      const profileId = cfg.profile_id       as string
+      const region    = (cfg.region as string) ?? 'NA'
+      if (!token || !amazonCid || !profileId) return res.status(400).json({ error: 'Amazon Ads not configured — connect it in Channels and select a profile' })
+
+      const r = await pushAmazon(token, amazonCid, profileId, region, {
+        name:         campaign.name as string,
+        goal:         campaign.goal as string,
+        budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 5,
+        start_date:   campaign.start_date as string | null,
+        end_date:     campaign.end_date   as string | null,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, r.adGroupId, req.params.id, 'amazon')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'amazon'").run()
+      res.json({ ok: true, campaignId: r.campaignId, adGroupId: r.adGroupId })
+    }
+    else if (req.params.slug === 'pinterest') {
+      const cfg = getPinterestCfg()
+      const token     = cfg.access_token as string
+      const accountId = cfg.account_id   as string
+      if (!token || !accountId) return res.status(400).json({ error: 'Pinterest Ads not configured — connect it in Channels and select an ad account' })
+
+      const r = await pushPinterest(accountId, token, {
+        name:         campaign.name as string,
+        goal:         campaign.goal as string,
+        budget_daily: (cc.budget_daily as number) || (campaign.budget_daily as number) || 5,
+        start_date:   campaign.start_date as string | null,
+        end_date:     campaign.end_date   as string | null,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, ext_adset_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, r.adGroupId, req.params.id, 'pinterest')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'pinterest'").run()
+      res.json({ ok: true, campaignId: r.campaignId, adGroupId: r.adGroupId })
+    }
+    else if (req.params.slug === 'mailchimp') {
+      const cfg = getMailchimpCfg()
+      const token      = cfg.access_token as string
+      const dc         = cfg.dc           as string
+      const audienceId = cfg.audience_id  as string
+      const fromEmail  = cfg.from_email   as string
+      if (!token || !dc) return res.status(400).json({ error: 'Mailchimp not configured — connect it in Channels' })
+      if (!audienceId)   return res.status(400).json({ error: 'Select a Mailchimp audience in Channels' })
+      if (!fromEmail)    return res.status(400).json({ error: 'Set a From email for Mailchimp in Channels' })
+
+      const r = await pushMailchimp(dc, token, audienceId, fromEmail, {
+        name:    campaign.name        as string,
+        subject: campaign.headline    as string | undefined,
+        html:    campaign.description as string | undefined,
+      })
+
+      db.prepare(`UPDATE campaign_channels SET ext_campaign_id = ?, pushed_at = datetime('now') WHERE campaign_id = ? AND channel_slug = ?`)
+        .run(r.campaignId, req.params.id, 'mailchimp')
+      db.prepare("UPDATE channels SET last_sync_at = datetime('now') WHERE slug = 'mailchimp'").run()
+      res.json({ ok: true, campaignId: r.campaignId, webId: r.webId })
     }
     else {
       res.status(400).json({ error: `Push not supported for ${req.params.slug}` })

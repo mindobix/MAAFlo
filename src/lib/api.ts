@@ -1,4 +1,4 @@
-import type { Client, Campaign, CampaignDetail, CampaignChannel, CampaignAd, Channel, AnalyticsSummary, TrendPoint, CampaignBreakdown, Settings, GoogleCustomer, MetaAdAccount, ChannelAnalytics } from './types'
+import type { Client, Campaign, CampaignDetail, CampaignChannel, CampaignAd, Channel, AnalyticsSummary, TrendPoint, CampaignBreakdown, Settings, GoogleCustomer, MetaAdAccount, TiktokAdvertiser, LinkedInAdAccount, XAdAccount, SnapAdAccount, AmazonProfile, PinterestAdAccount, MailchimpAudience, ChannelAnalytics } from './types'
 
 const BASE = '/api'
 
@@ -81,6 +81,91 @@ export const api = {
     selectAccount:   (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/meta/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
     pushCampaign:    (campaignId: number) => req<{ ok: boolean; campaignId: string; adSetId: string }>(`/channels/meta/push-campaign/${campaignId}`, { method: 'POST' }),
     sync:            (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/meta/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // mailchimp (scoped to client)
+  mailchimp: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/mailchimp/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; dc: string | null; audience_id: string | null; audiences: MailchimpAudience[]; from_email: string | null; login_email: string | null; account_name: string | null }>(`/channels/mailchimp/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { mailchimp_client_id: string; mailchimp_client_secret: string; from_email?: string }) =>
+      req<{ ok: boolean }>('/channels/mailchimp/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshAudiences:    (clientId: number) => req<{ audience_id: string | null; audiences: MailchimpAudience[] }>('/channels/mailchimp/refresh-audiences', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectAudience:      (audience_id: string, clientId: number) => req<{ ok: boolean }>('/channels/mailchimp/select-audience', { method: 'POST', body: JSON.stringify({ audience_id, client_id: clientId }) }),
+    setFromEmail:        (from_email: string, clientId: number) => req<{ ok: boolean }>('/channels/mailchimp/set-from-email', { method: 'POST', body: JSON.stringify({ from_email, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; webId: number | null }>(`/channels/mailchimp/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; campaigns_synced: number; synced_at: string }>('/channels/mailchimp/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // pinterest (scoped to client)
+  pinterest: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/pinterest/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; account_id: string | null; ad_accounts: PinterestAdAccount[] }>(`/channels/pinterest/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { pinterest_client_id: string; pinterest_client_secret: string }) =>
+      req<{ ok: boolean }>('/channels/pinterest/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshAccounts:     (clientId: number) => req<{ account_id: string | null; ad_accounts: PinterestAdAccount[] }>('/channels/pinterest/refresh-accounts', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/pinterest/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; adGroupId: string }>(`/channels/pinterest/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/pinterest/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // amazon (scoped to client)
+  amazon: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/amazon/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; region: string; profile_id: string | null; profiles: AmazonProfile[] }>(`/channels/amazon/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { amazon_client_id: string; amazon_client_secret: string; region: string }) =>
+      req<{ ok: boolean }>('/channels/amazon/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshProfiles:     (clientId: number) => req<{ profile_id: string | null; profiles: AmazonProfile[] }>('/channels/amazon/refresh-profiles', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectProfile:       (profile_id: string, clientId: number) => req<{ ok: boolean }>('/channels/amazon/select-profile', { method: 'POST', body: JSON.stringify({ profile_id, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; adGroupId: string }>(`/channels/amazon/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; report_id: string; pending: boolean; synced_at: string }>('/channels/amazon/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // snapchat (scoped to client)
+  snapchat: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/snapchat/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; account_id: string | null; ad_accounts: SnapAdAccount[] }>(`/channels/snapchat/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { snapchat_client_id: string; snapchat_client_secret: string }) =>
+      req<{ ok: boolean }>('/channels/snapchat/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshAccounts:     (clientId: number) => req<{ account_id: string | null; ad_accounts: SnapAdAccount[] }>('/channels/snapchat/refresh-accounts', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/snapchat/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; adSquadId: string }>(`/channels/snapchat/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/snapchat/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // x_ads (scoped to client)
+  x: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/x_ads/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; account_id: string | null; ad_accounts: XAdAccount[] }>(`/channels/x_ads/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { x_client_id: string; x_client_secret: string }) =>
+      req<{ ok: boolean }>('/channels/x_ads/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshAccounts:     (clientId: number) => req<{ account_id: string | null; ad_accounts: XAdAccount[] }>('/channels/x_ads/refresh-accounts', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/x_ads/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; lineItemId: string }>(`/channels/x_ads/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/x_ads/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // linkedin (scoped to client)
+  linkedin: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/linkedin/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; account_id: string | null; ad_accounts: LinkedInAdAccount[] }>(`/channels/linkedin/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { linkedin_client_id: string; linkedin_client_secret: string }) =>
+      req<{ ok: boolean }>('/channels/linkedin/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshAccounts:     (clientId: number) => req<{ account_id: string | null; ad_accounts: LinkedInAdAccount[] }>('/channels/linkedin/refresh-accounts', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectAccount:       (account_id: string, clientId: number) => req<{ ok: boolean }>('/channels/linkedin/select-account', { method: 'POST', body: JSON.stringify({ account_id, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; campaignGroupId: string }>(`/channels/linkedin/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/linkedin/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+  },
+
+  // tiktok (scoped to client)
+  tiktok: {
+    connectUrl:          (clientId: number) => req<{ url: string }>(`/channels/tiktok/connect?client_id=${clientId}`),
+    config:              (clientId: number) => req<{ has_credentials: boolean; advertiser_id: string | null; advertisers: TiktokAdvertiser[] }>(`/channels/tiktok/config?client_id=${clientId}`),
+    saveCreds:           (clientId: number, creds: { tiktok_app_id: string; tiktok_app_secret: string }) =>
+      req<{ ok: boolean }>('/channels/tiktok/credentials', { method: 'POST', body: JSON.stringify({ ...creds, client_id: clientId }) }),
+    refreshAdvertisers:  (clientId: number) => req<{ advertiser_id: string | null; advertisers: TiktokAdvertiser[] }>('/channels/tiktok/refresh-advertisers', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
+    selectAdvertiser:    (advertiser_id: string, clientId: number) => req<{ ok: boolean }>('/channels/tiktok/select-advertiser', { method: 'POST', body: JSON.stringify({ advertiser_id, client_id: clientId }) }),
+    pushCampaign:        (campaignId: number) => req<{ ok: boolean; campaignId: string; adGroupId: string }>(`/channels/tiktok/push-campaign/${campaignId}`, { method: 'POST' }),
+    sync:                (clientId: number) => req<{ ok: boolean; days: number; synced_at: string }>('/channels/tiktok/sync', { method: 'POST', body: JSON.stringify({ client_id: clientId }) }),
   },
 
   // backup
