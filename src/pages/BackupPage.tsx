@@ -66,7 +66,7 @@ export default function BackupPage() {
               <h3 className="text-sm font-semibold text-ink mb-1">Export Backup</h3>
               <p className="text-sm text-ink-muted mb-4">
                 Downloads a <code className="bg-surface-2 px-1 rounded text-xs font-mono">.json</code> file
-                containing all campaigns, analytics data, and settings.
+                containing all clients, campaigns, channel assignments, ads, analytics, and settings.
                 Store it somewhere safe — it can fully restore your MAAFlo instance.
               </p>
               <button className="btn-primary" onClick={exportBackup}>
@@ -109,10 +109,13 @@ export default function BackupPage() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-3">What's included in a backup</h3>
           <ul className="text-sm text-ink-2 space-y-1">
             {[
-              'All campaigns and their metadata',
+              'Clients',
+              'All campaigns and their metadata (headlines, descriptions, CTAs)',
+              'Campaign channel assignments and push status',
+              'Campaign ads (creatives per channel)',
               'Daily analytics data (impressions, clicks, conversions, spend, revenue)',
+              'Channel connection status per client (not OAuth tokens for security)',
               'App settings (currency, timezone, defaults)',
-              'Channel connection status (not OAuth tokens for security)',
             ].map(item => (
               <li key={item} className="flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
